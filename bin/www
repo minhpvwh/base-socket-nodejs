@@ -1,0 +1,164 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('base-socket-node:server');
+var http = require('http');
+const socketio = require('socket.io');
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+const io = socketio(server);
+
+/**
+ * SocketIO function.
+ */
+
+io.on('connection', (socket) => {
+  console.log('New web socket connection', socket.id);
+
+
+  socket.on('send all', (msg) => {
+    // gửi cho tất cả kể cả người gửi
+    io.sockets.emit(msg);
+  });
+
+  socket.on('send broadcast', (msg) => {
+    // gửi cho tất cả ngoại trừ người gửi
+    socket.boardcast.emit(msg);
+  });
+
+  socket.on('send room', (msg) => {
+    // gửi cho các kết nối trong room
+    io.sockets.in("ANDROID").emit("php")
+  });
+
+  socket.on('join room', (msg) => {
+    // join room
+    socket.join(data)
+  });
+
+  socket.on('JOIN', (options, callback) => {
+    const { error, user } = addUser({ id: socket.id, ...options });
+
+    if (error) {
+      callback(error);
+    }
+
+    socket.join(user.room);
+
+    socket.emit('MESSAGE', generateMessage('Admin', 'Welcome to the jungle!'));
+    socket.broadcast.to(user.room).emit('MESSAGE', generateMessage('Admin', `${user.username} has joined!`));
+    io.to(user.room).emit('ROOM_DATA', {
+      room: user.room,
+      users: getUsersInRoom(user.room),
+    });
+
+    callback();
+  });
+
+  socket.on('SEND_MESSAGE', (message, callback) => {
+    const user = getUser(socket.id);
+    const filter = new Filter();
+
+    if (filter.isProfane(message)) {
+      return callback('Profanity is not allowed');
+    }
+
+    io.to(user.room).emit('MESSAGE', generateMessage(user.username, message));
+    callback();
+  });
+
+  socket.on('SEND_LOCATION', (latitude, longitude, callback) => {
+    const user = getUser(socket.id);
+    const url = `https://google.com/maps?q=${latitude},${longitude}`;
+
+    io.to(user.room).emit('LOCATION_MESSAGE', generateLocationMessage(user.username, url));
+    callback();
+  });
+
+  socket.on('disconnect', () => {
+    console.log('user disconnected', socket.id);
+  });
+});
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}
